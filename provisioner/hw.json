@@ -1,0 +1,90 @@
+{
+    "id": "373324c8-7fb5-11ea-9227-0242ac120004",
+    "allow_workflow": true,
+    "facility_code": "onprem",
+    "plan_slug": "onprem",
+    "arch": "x86_64",
+    "allow_pxe": true,
+    "instance": {
+        "storage": {
+            "disks": [
+                {
+                    "device": "/dev/sda",
+                    "wipeTable": true,
+                    "partitions": [
+                        {
+                            "size": 4096,
+                            "label": "BIOS",
+                            "number": 1
+                        },
+                        {
+                            "size": "3993600",
+                            "label": "SWAP",
+                            "number": 2
+                        },
+                        {
+                            "size": 0,
+                            "label": "ROOT",
+                            "number": 3
+                        }
+                    ]
+                }
+            ],
+            "filesystems": [
+                {
+                    "mount": {
+                        "point": "/",
+                        "create": {
+                            "options": [
+                                "-L",
+                                "ROOT"
+                            ]
+                        },
+                        "device": "/dev/sda3",
+                        "format": "ext4"
+                    }
+                },
+                {
+                    "mount": {
+                        "point": "none",
+                        "create": {
+                            "options": [
+                                "-L",
+                                "SWAP"
+                            ]
+                        },
+                        "device": "/dev/sda2",
+                        "format": "swap"
+                    }
+                }
+            ]
+        },
+        "operating_system_version": {
+            "slug": "ubuntu_18_04-onprem",
+            "distro": "ubuntu",
+            "os_slug": "ubuntu_18_04",
+            "version": "18.04",
+            "image_tag": "7844cf38831a092c4c6eb712a2edd7349226dafd"
+        }
+    },
+    "ip_addresses": [
+        {
+            "address": "192.168.2.222",
+            "address_family": 4,
+            "enabled": true,
+            "gateway": "192.168.2.1",
+            "management": true,
+            "netmask": "255.255.255.0",
+            "public": false
+        }
+    ],
+    "network_ports": [
+        {
+            "data": {
+                "mac": "52:54:00:f9:79:28"
+            },
+            "name": "eth0",
+            "type": "data"
+        }
+    ]
+}
