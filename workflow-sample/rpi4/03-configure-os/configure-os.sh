@@ -13,8 +13,11 @@ touch /p1/ssh && umount /p1
 echo "Mounting root partition ${disk}p2"
 mount ${disk}p2 /p2
 cp -f /configure-systemd.sh /p2 
+
+HOSTNAME=$(curl -s ${HEGEL_URL}/metadata | jq -r .hostname)
+
 echo "Configuring systemd on persisted system" 
-if chroot /p2 /configure-systemd.sh $WIFI_SSID $WIFI_PSK $WIFI_COUNTRY
+if chroot /p2 /configure-systemd.sh "$HOSTNAME" "$WIFI_SSID" "$WIFI_PSK" "$WIFI_COUNTRY"
 then
   echo "Configuration performed successfully"
 else
