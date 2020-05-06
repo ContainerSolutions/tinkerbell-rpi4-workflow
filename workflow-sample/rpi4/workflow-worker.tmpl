@@ -1,0 +1,42 @@
+version: '0.1'
+name: rpi_k8s_provisioning
+global_timeout: 6000
+tasks:
+- name: "k8s-installation"
+  worker: "{{index .Targets "machine1" "ipv4_addr"}}"
+  environment:
+    HEGEL_URL: http://192.168.2.2:50061
+    NODE_IP: "{{index .Targets "machine1" "ipv4_addr"}}"
+  volumes:
+    - /dev:/dev
+  actions:
+  - name: "disk-wipe"
+    image: wipe
+    timeout: 90
+  - name: "os-install"
+    image: install-os
+    timeout: 800
+    environment:
+       OS_URL: http://192.168.2.3/misc/osie/current/raspbian_latest/os.zip
+  - name: "os-configure"
+    image: configure-os
+    timeout: 120
+    environment:
+       WIFI_SSID: optional
+       WIFI_PSK: optional-password
+       WIFI_COUNTRY: optional-country-code
+  - name: "install-k8s"
+    image: install-k8s
+    timeout: 600
+    environment:
+       K8S_CLUSTER_SECRET: secret-token
+       K3S_URL: https://192.168.2.35:6443
+  - name: "reboot"
+    image: reboot
+    timeout: 120
+    environment:
+       REGISTRY: 192.168.2.2
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/docker:/etc/docker
+      - /root:/root

@@ -3,7 +3,10 @@ name: rpi_k8s_provisioning
 global_timeout: 6000
 tasks:
 - name: "k8s-installation"
-  worker: "{{index .Targets "machine1" "mac_addr"}}"
+  worker: "{{index .Targets "machine1" "ipv4_addr"}}"
+  environment:
+    HEGEL_URL: http://192.168.2.2:50061
+    NODE_IP: "{{index .Targets "machine1" "ipv4_addr"}}"
   volumes:
     - /dev:/dev
   actions:
@@ -19,9 +22,9 @@ tasks:
     image: configure-os
     timeout: 120
     environment:
-       WIFI_SSID: pamparampam
-       WIFI_PSK: supersecretwifipassword
-       WIFI_COUNTRY: PL
+       WIFI_SSID: optional
+       WIFI_PSK: optional-password
+       WIFI_COUNTRY: optional-country-code
   - name: "install-k8s"
     image: install-k8s
     timeout: 600
