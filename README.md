@@ -7,7 +7,7 @@ worker nodes on top of the raspberries pi version 4 (RPi4).
 
 Tinkerbell is engine for provisioning bare metal servers, it helps users to build fully bootable and
 operational machine from scratch. It can be used for any type of the machine from traditional 
-x86_64 servers to arm based single boards computers. This repository contains step by step instruction, how 
+x86_64 servers to arm based single-board computers. This repository contains step by step instruction, how 
 leverage tinkerbell provisoning engine to build fully operational k8s cluster. It is assumed some familiarity 
 with tinkerbell concepts in the below instruction. 
 
