@@ -1,0 +1,41 @@
+version: '0.1'
+name: rpi4-k8s-master-provisioning
+global_timeout: 6000
+tasks:
+- name: "k8s-installation"
+  worker: "{{index .Targets "machine1" "ipv4_addr"}}"
+  environment:
+    HEGEL_URL: <hegel url>
+    NODE_IP: "{{index .Targets "machine1" "ipv4_addr"}}"
+  volumes:
+    - /dev:/dev
+  actions:
+  - name: "disk-wipe"
+    image: wipe
+    timeout: 90
+  - name: "os-install"
+    image: install-os
+    timeout: 800
+    environment:
+       OS_URL: <nginx url with path to rasbpian>
+  - name: "os-configure"
+    image: configure-os
+    timeout: 120
+    environment:
+       WIFI_SSID: <optional wifi ssid>
+       WIFI_PSK: <optional wifi password>
+       WIFI_COUNTRY: <optional wifi country code>
+  - name: "install-k8s"
+    image: install-k8s
+    timeout: 600
+    environment:
+       K8S_CLUSTER_SECRET: <k8s secret token>
+  - name: "reboot"
+    image: reboot
+    timeout: 120
+    environment:
+       REGISTRY: <registry url>
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/docker:/etc/docker
+      - /root:/root
