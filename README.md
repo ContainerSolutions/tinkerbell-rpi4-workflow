@@ -21,7 +21,8 @@ The lab consist of:
 1) KVM+QEMU hypervisor running on top of fedora 31
 1) Centos 7 virtual machine hosting tinkerbell provisioner
 1) Raspberries Pies version 4 workers
-####Configuring hypervisor network
+
+#### Configuring hypervisor network
 In order to ensure flawless communication between rpi4 - host- vm, it is required to first setup a bridge 
 in the host. In the fedora31 it can be achieved as follows: 
 ```bash
