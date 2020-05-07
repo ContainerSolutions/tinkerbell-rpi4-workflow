@@ -8,7 +8,8 @@ worker nodes on top of the raspberries pi version 4 (RPi4).
 Tinkerbell is engine for provisioning bare metal servers, it helps users to build fully bootable and
 operational machine from scratch. It can be used for any type of the machine from traditional 
 x86_64 servers to arm based single boards computers. This repository contains step by step instruction, how 
-leverage tinkerbell provisoning engine to build fully operational k8s cluster.
+leverage tinkerbell provisoning engine to build fully operational k8s cluster. It is assumed some familiarity 
+with tinkerbell concepts in the below instruction. 
 
 ## Preparation:
 ### Setting local environment
@@ -49,10 +50,10 @@ Connect to the virtual machine and follow steps from https://tinkerbell.org/setu
 
 ### Setup nfs and tftp
 Unfortunately the tinkerbell native method for provisioning os image won't work out of the box with the
-raspberries pies, because they don't support fully yet the ipxe (https://rpi4-uefi.dev/ is missing firmare for lan port). 
+raspberries pies (version4), because they don't support fully yet the ipxe (https://rpi4-uefi.dev/ is missing firmare for the lan port). 
 So it is required to setup workaround for booting them and invoke tinkerbell workflow. The workaround consist of configuring them to
-boot them using netboot and load their filesystem from nfs server. Once loaded, the system will invoke the process responsible 
-for executing the workflow - workflow-helper. 
+boot using netboot and load their root filesystem from nfs server. Once loaded, the system will invoke the process responsible 
+for the workflow execution - workflow-helper. 
 
 Plan of execution:
 1. RPi boots and gets IP from boots
