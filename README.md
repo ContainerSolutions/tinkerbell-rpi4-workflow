@@ -22,7 +22,7 @@ The lab consist of:
 1) Centos 7 virtual machine hosting tinkerbell provisioner
 1) Raspberries Pies version 4 workers
 
-#### Configuring hypervisor network
+#### Configure hypervisor network
 In order to ensure flawless communication between rpi4 - host- vm, it is required to first setup a bridge 
 in the host. In the fedora31 it can be achieved as follows: 
 ```bash
@@ -37,10 +37,15 @@ sudo sysctl -w net.bridge.bridge-nf-call-iptables=0
 **Note:** Adjust the above configuration to your host. The listed kernel parameters are used to allow forwarding of dhcp
 request to virtual machine.
 
-### Creating virtual machine
+#### Create virtual machine
 Ensure virtual machine is connected to the previously created bridge and it does not block traffic for http, https, dhcp and tftp. 
 
-### Installing tinkerbell
+#### Prepare raspberries pies
+Take them out of the box.
+
+## Installation and configuration
+### Virtual Machine
+#### Install tinkerbell
 Connect to the virtual machine and follow steps from https://tinkerbell.org/setup/prep_provisioner/
 
-### Configure raspberry pi
+### Raspberry Pi
