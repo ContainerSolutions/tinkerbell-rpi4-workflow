@@ -56,7 +56,8 @@ Take them out of the box.
 
 ## Installation and configuration
 ### Install tinkerbell
-Connect to the virtual machine and follow steps from https://tinkerbell.org/setup/prep_provisioner/
+Connect to the virtual machine and follow steps from https://tinkerbell.org/setup/prep_provisioner/ .
+At the end of installation, envrc file should be created, note its location.
 
 ### Setup nfs and tftp
 Unfortunately the tinkerbell native method for provisioning os image won't work out of the box with the
@@ -80,6 +81,7 @@ Schema:
 
 #### Configure nfs
 First step to enable netboot is to configure nfs server:
+1) Source `envrc` created during tinkerbell installation
 1) Ensure `unzip kpartx nfs-kernel-server nfs-utils xinetd tftp-server` are installed
 1) Create nfs mount point:
      ```bash
@@ -108,12 +110,24 @@ First step to enable netboot is to configure nfs server:
     wget https://github.com/Hexxeh/rpi-firmware/raw/master/start4.elf && wget https://github.com/Hexxeh/rpi-firmware/raw/master/fixup4.dat
     mv start4.elf fixup4.elf /nfs/os/boot/
     ```
+ 1) Populate `provisioner/nfs/boot/cmdline.txt` with appropriate data and replace `cmdline.txt`  from `/nfs/os/boot` with it.
+    ```bash
+     cat provisioner/nfs/boot/cmdline.txt | envsubst > /nfs/os/boot/cmdline.txt
+     ``` 
+ 1) Copy files from `provisioner/nfs/{bin,etc,lib/systemd/system}`to corresponding locations:
+    ```bash
+    cp -f provisioner/nfs/bin/* /nfs/os/bin/
+    cp -f provisioner/nfs/etc/* /nfs/os/etc/
+    cp -f provisioner/nfs/lib/systemd/system/* /nfs/os/lib/systemd/system
+    ```  
+ 1) Enable ssh at the boot time: `touch /nfs/os/boot/ssh`  
  1) Export os directory
-     ```bash
-    echo /nfs/os *(rw,sync,no_subtree_check,no_root_squash) >> /etc/exports
+    ```bash
+    echo '/nfs/os *(rw,sync,no_subtree_check,no_root_squash)' >> /etc/exports
     ```
 #### Configure tftp
 The next step is to configure tftp server:
+1) Source `envrc` created during tinkerbell installation
 1) Relax SELinux policy for tftp service
     ```bash
     setsebool -P tftp_home_dir 1
@@ -128,9 +142,9 @@ we need to setup another tftp server next to boots. We must ensure that it does 
 because it won't even start in that case, so in the configuration we should explicitly bind it to the 2nd ip address of 
 the interface used by tinkerbell. Tinkerbell during its setup adds another ip which is used by nginx service, we will reuse
 it for tftp server as well.\
-It is possible to check ip address of the tinkerbell assigned interface with: `ip addr show` \
-Modify `/etc/xinetd.d/tftp`
+Modify `/etc/xinetd.d/tftp`:
     ```bash
+   cat << EOF | envsubst > /etc/xinetd.d/tftp
     service tftp
     {
             socket_type             = dgram
@@ -138,22 +152,30 @@ Modify `/etc/xinetd.d/tftp`
             wait                    = yes
             user                    = root
             server                  = /usr/sbin/in.tftpd
-            bind                    = <use 2nd ip from tinkerbell interface>
+            bind                    = ${TINKERBELL_NGINX_IP}
             server_args             = -v -v -s /tftp
             disable                 = no
             per_source              = 11
             cps                     = 100 2
             flags                   = IPv4
     }
+   EOF
     ```
+ 
+#### Enable both services
+Execute: 
+```bash
+systemctl enable xinetd rpc-bind nfs-server
+systemct restart xinetd rpc-bind nfs-server
+```  
    
 ### Raspberry Pi
 
 Next step, before we start nfs and tftp services is to actually configure raspberries pies to boot fron the
-network. Unfortunately the current version does not support it out of the box.
+network. 
 1) Install raspbian os on sd card and plug it into your raspberry pi. 
-1) Once booted, connect to it as root and go to `/lib/firmware/raspberrypi/bootloader/beta/`
-1) Create boot configuration file, remember to replace with tftp server ip address created in the previous step:
+1) Once booted, connect to it as root and go to `/lib/firmware/raspberrypi/bootloader/stable/`
+1) Create boot configuration file, remember to replace `TFTP_IP` with correct ip address (`${TINKERBELL_NGINX_IP}`) created in the previous step:
     ```bash
     cat <<EOF > bootconf.cfg
     [all]
@@ -163,7 +185,7 @@ network. Unfortunately the current version does not support it out of the box.
     DHCP_TIMEOUT=45000
     DHCP_REQ_TIMEOUT=4000
     TFTP_FILE_TIMEOUT=30000
-    TFTP_IP=<tftp service ip address>
+    TFTP_IP=${TINKERBELL_NGINX_IP}
     TFTP_PREFIX=0
     BOOT_ORDER=0x21
     SD_BOOT_MAX_RETRIES=3
@@ -172,7 +194,7 @@ network. Unfortunately the current version does not support it out of the box.
     FREEZE_VERSION=0
     EOF
     ```
-1) Create new boot image using the most recent boot image available in the beta directory:
+1) Create new boot image using the most recent boot image available in the stable directory:
     ```bash
     rpi-eeprom-config --out netboot-pieeprom.bin --config bootconf.cfg pieeprom-2020-04-16.bin
     ```
@@ -187,10 +209,50 @@ network. Unfortunately the current version does not support it out of the box.
     printf "serial: %s\nmac: %s\n" ${serial: -8} ${mac}
     ```
 1) Repeat above steps for all your RPies.
+1) In one of the raspberries pies, connect it to the internet and do the following:
+    1) Mount the earlier created nfs directory
+        ```bash
+        mount -t nfs ${TINKERBELL_HOST_IP}:/nfs/os /mnt
+        ```
+    1) Chroot into it and mount all partitions:
+        ```bash
+        cd /mnt && chroot `pwd` /bin/bash && mount -a
+        ```
+    1) Download and install docker, jq, wget, curl 
+        ```bash
+        apt-get update && apt-get install -y curl wget jq && curl -sSL https://get.docker.com | sh
+        ```
+     1) Enable required services and disable unneeded one:
+        ```bash
+        systemctl enable docker workflow-helper sshd wpa_supplicant 
+        systemctl disable bluetooth       
+        ```
+     1) Exit `chroot` and `umount /mnt`
+     1) Optionally configure wifi:
+        ```bash
+        cp /etc/wpa_supplicant/wpa_supplicant.conf /mnt/etc/wpa_supplicant/wpa_supplicant.conf
+        ```  
+      
 1) If you plan on using the same sd card during workflow execution, ensure to destroy partition table:
     ```bash
     dd if=/dev/zero of=/dev/mmcblk0 bs=1M count=1
     ```
    It is required to do this, because otherwise raspberry pi will boot from sd card first and not from network.
+   If not eject sd card and inject empty one.
 1) Turn off RPi4.
-   
+
+### Finishing config for tinkerbell
+1) In the tftp directory, create directories with RPi serial numbers:
+    ```bash
+    mkdir -p /tftp/<RPi serial number>
+    ```
+1) Mount-bind the required boot files to created directories:
+    ```bash
+    cd /tftp/; for i in `ls`; do mount -o bind /nfs/os/boot /tftp/$i; done ;cd -
+    ```
+   **Note:** If you want to persist mounts across reboots, update /etc/fstab: 
+   ```bash
+    echo "/nfs/os/boot /tftp/<rpi serial number> none defaults,bind 0 0" >> /etc/fstab
+    ```
+ 
+ ## Configure workflows  
