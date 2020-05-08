@@ -5,7 +5,7 @@ tasks:
 - name: "k8s-installation"
   worker: "{{index .Targets "machine1" "ipv4_addr"}}"
   environment:
-    HEGEL_URL: ${HEGEL}
+    HEGEL_URL: ${TINKERBELL_HOST_IP}
     NODE_IP: "{{index .Targets "machine1" "ipv4_addr"}}"
   volumes:
     - /dev:/dev
@@ -35,7 +35,7 @@ tasks:
     image: reboot
     timeout: 120
     environment:
-       REGISTRY: ${REGISTRY}
+       REGISTRY: ${TINKERBELL_HOST_IP}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/docker:/etc/docker

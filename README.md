@@ -54,14 +54,14 @@ firewall-cmd --permanent --add-service https
 #### Prepare raspberries pies
 Take them out of the box.
 
-## Installation and configuration
+## Installation and configuration of the provisioner and RPi4
 ### Install tinkerbell
 Connect to the virtual machine and follow steps from https://tinkerbell.org/setup/prep_provisioner/ .
 At the end of installation, envrc file should be created, note its location.
 
 ### Setup nfs and tftp
 Unfortunately the tinkerbell native method for provisioning os image won't work out of the box with the
-raspberries pies (version4), because they don't support fully yet the ipxe (https://rpi4-uefi.dev/ is missing firmare for the lan port). 
+raspberries pies (version4), because they don't support fully yet the ipxe (https://github.com/pftf/RPi4 is missing firmware for the lan port). 
 So it is required to setup workaround for booting them and invoke tinkerbell workflow. The workaround consist of configuring them to
 boot using netboot and load their root filesystem from nfs server. Once loaded, the system will invoke the process responsible 
 for the workflow execution - workflow-helper. 
@@ -241,7 +241,7 @@ network.
    If not eject sd card and inject empty one.
 1) Turn off RPi4.
 
-### Finishing config for tinkerbell
+### Final step
 1) In the tftp directory, create directories with RPi serial numbers:
     ```bash
     mkdir -p /tftp/<RPi serial number>
@@ -255,4 +255,112 @@ network.
     echo "/nfs/os/boot /tftp/<rpi serial number> none defaults,bind 0 0" >> /etc/fstab
     ```
  
- ## Configure workflows  
+ ## Configure workflows
+ Workflow is a set of task which are executed in order and are used to configure the bare metal machine. 
+ Each of the task is executed in th separate docker container. All task are supervised by a tink-worker, which
+ gathers logs, communicates with external services and handles errors.
+ ### Prepare workflow
+ Since workflows are executed in-memory on raspberry pi, it is required ensure tink-worker support that architecture, at the time 
+ of writing it was not available, but we prepared one for you, you can pull it from here:
+ ```bash
+docker pull ottovsky/tink-worker:armv7
+```
+Once pulled, tag it with your ${TINKERBELL_HOST_IP} registry and push it:
+````bash
+docker tag ottovsky/tink-worker:armv7 ${TINKERBELL_HOST_IP}/tink-worker:armv7
+docker push ${TINKERBELL_HOST_IP}/tink-worker:armv7
+````
+
+Next follow instructions from workflow directory.
+
+### Create workflow
+1) Source `envrc`
+1) Register raspberries pies hardware in tinkerbell
+    ```bash
+    export hw=$(cat templates/hw.json | envsubst UUID="$(uuidgen)" IP="<desired ip>" MASK="255.255.255.0" MAC="<mac of RPi>" HOSTNAME="hostname")
+    docker exec -ti deploy_tink-cli_1 tink hardware push "$hw"
+    ```
+   Example output after all RPi were registered:
+   ````bash
+    docker exec -ti deploy_tink-cli_1 tink hardware all
+    {"id": "5156f2b7-b0bc-403d-a3f7-5a2db8a40918", "arch": "aarch64", "hostname": "master-1", "allow_pxe": true, "ip_addresses": [{"address": "192.168.2.35", "netmask": "255.255.255.0", "address
+    _family": 4}], "network_ports": [{"data": {"mac": "dc:a6:32:7a:28:91"}, "name": "eth0", "type": "data"}], "allow_workflow": true}
+    {"id": "e247beba-0a29-4f76-91f5-c74e89b8b74d", "arch": "aarch64", "hostname": "worker-1", "allow_pxe": true, "ip_addresses": [{"address": "192.168.2.36", "netmask": "255.255.255.0", "address
+    _family": 4}], "network_ports": [{"data": {"mac": "dc:a6:32:7a:2a:65"}, "name": "eth0", "type": "data"}], "allow_workflow": true}
+    {"id": "9f26de7a-3149-4833-a453-8a73e95a1d53", "arch": "aarch64", "hostname": "worker-2", "allow_pxe": true, "ip_addresses": [{"address": "192.168.2.37", "netmask": "255.255.255.0", "address
+    _family": 4}], "network_ports": [{"data": {"mac": "dc:a6:32:7a:29:e1"}, "name": "eth0", "type": "data"}], "allow_workflow": true}
+   ````
+1) Create targets: \
+For each of RPi run, replace desired ip with previously defined ip:
+    ```bash
+    docker exec -ti deploy_tink-cli_1 tink target create '{"targets": {"machine1": {"ipv4_addr": "<desired ip>"}}}' 
+    ```
+    Note down ids of the created targets. \
+    Example output of all created targets:
+    ```bash
+    docker exec -ti deploy_tink-cli_1 tink target list
+    +--------------------------------------+----------------------------------------------------------+
+    | TARGET ID                            | TARGET DATA                                              |
+    +--------------------------------------+----------------------------------------------------------+
+    | 551ff1ae-1a98-4f81-8a5d-60d0b7d23238 | {"targets": {"machine1": {"ipv4_addr": "192.168.2.37"}}} |
+    | 0f14482c-bec8-4b43-9eb1-d31311b46d1f | {"targets": {"machine1": {"ipv4_addr": "192.168.2.35"}}} |
+    | 83ba628d-62a2-479e-b7af-9606b73d12a8 | {"targets": {"machine1": {"ipv4_addr": "192.168.2.36"}}} |
+    +--------------------------------------+----------------------------------------------------------+
+    ```
+1) Create templates
+    ```bash
+    export SSID=<wifi ssid>
+    export PSK=<wifi psk>
+    export COUNTRY=<wifi country>
+    export SECRET=<k8s secret>
+    export K3S="https://<master ip>:6443 
+    cat templates/workflow-master.tmpl | envsubst > k8s-master.tmpl
+    cat templates/workflow-worker.tmpl | envsubst > k8s-worker.tmpl
+    docker cp k8s-master.tmpl deploy_tink-cli_1:/root
+    docker cp k8s-worker.tmpl deploy_tink-cli_1:/root
+    docker exec -ti deploy_tink-cli_1 tink template create -n k8s-master -p /root/k8s-master.tmpl
+    docker exec -ti deploy_tink-cli_1 tink template create -n k8s-worker -p /root/k8s-worker.tmpl
+    ```
+    Note down the returned ids of the templates. \
+    Example output of created templates:
+    ```bash
+    docker exec -ti deploy_tink-cli_1 tink template list
+    +--------------------------------------+---------------+-------------------------------+-------------------------------+
+    | TEMPLATE ID                          | TEMPLATE NAME | CREATED AT                    | UPDATED AT                    |
+    +--------------------------------------+---------------+-------------------------------+-------------------------------+
+    | 4c4deca8-7e80-4518-9729-4874a166a729 | k8s-master    | 2020-05-07 08:07:31 +0000 UTC | 2020-05-07 08:07:31 +0000 UTC |
+    | b6fa353b-d20e-434d-9652-4ebe5231257b | k8s-worker    | 2020-05-07 08:05:57 +0000 UTC | 2020-05-07 08:05:57 +0000 UTC |
+    +--------------------------------------+---------------+-------------------------------+-------------------------------+
+    ```
+
+1) Create workflows, in orderd to this, it is required to assign template id with target id.
+    ```bash
+    docker exec -ti deploy_tink-cli_1 tink workflow create -t <template id> -r <target id>
+    ```
+    In this step, you decide what role should be assigned to RPi. for example if you would like one RPi to be k8s master, 
+    you have to assign target with its IP to the k8s-master template.
+    Note down the workflow ids.
+
+ ## Execute workflow
+ 
+ Insert empty sd card to the raspberry pi and power it up. Wait till the workflow is executed:
+ ```bash
+docker exec -ti deploy_tink-cli_1 tink workflow events <workflow id> 
++--------------------------------------+------------------+--------------+----------------+---------------------------------+--------------------+
+| WORKER ID                            | TASK NAME        | ACTION NAME  | EXECUTION TIME | MESSAGE                         |      ACTION STATUS |
++--------------------------------------+------------------+--------------+----------------+---------------------------------+--------------------+
+| 5156f2b7-b0bc-403d-a3f7-5a2db8a40918 | k8s-installation | disk-wipe    |              0 | Started execution               | ACTION_IN_PROGRESS |
+| 5156f2b7-b0bc-403d-a3f7-5a2db8a40918 | k8s-installation | disk-wipe    |             11 | Finished Execution Successfully |     ACTION_SUCCESS |
+| 5156f2b7-b0bc-403d-a3f7-5a2db8a40918 | k8s-installation | os-install   |              0 | Started execution               | ACTION_IN_PROGRESS |
+| 5156f2b7-b0bc-403d-a3f7-5a2db8a40918 | k8s-installation | os-install   |            501 | Finished Execution Successfully |     ACTION_SUCCESS |
+| 5156f2b7-b0bc-403d-a3f7-5a2db8a40918 | k8s-installation | os-configure |              0 | Started execution               | ACTION_IN_PROGRESS |
+| 5156f2b7-b0bc-403d-a3f7-5a2db8a40918 | k8s-installation | os-configure |              3 | Finished Execution Successfully |     ACTION_SUCCESS |
+| 5156f2b7-b0bc-403d-a3f7-5a2db8a40918 | k8s-installation | install-k8s  |              0 | Started execution               | ACTION_IN_PROGRESS |
+| 5156f2b7-b0bc-403d-a3f7-5a2db8a40918 | k8s-installation | install-k8s  |             19 | Finished Execution Successfully |     ACTION_SUCCESS |
+| 5156f2b7-b0bc-403d-a3f7-5a2db8a40918 | k8s-installation | reboot       |              0 | Started execution               | ACTION_IN_PROGRESS |
+| 5156f2b7-b0bc-403d-a3f7-5a2db8a40918 | k8s-installation | reboot       |             14 | Finished Execution Successfully |     ACTION_SUCCESS |
++--------------------------------------+------------------+--------------+----------------+---------------------------------+--------------------+
+
+```
+
+Once the workflow finished, the RPi should be an operational k8s master/worker node.
