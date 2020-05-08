@@ -1,0 +1,10 @@
+ [Unit]
+ Description=Workflow Helper Script
+ After=multi-user.target docker.service
+
+ [Service]
+ Type=idle
+ ExecStart=workflow-helper
+
+ [Install]
+ WantedBy=multi-user.target

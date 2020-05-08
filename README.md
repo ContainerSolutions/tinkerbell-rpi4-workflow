@@ -39,8 +39,18 @@ sudo sysctl -w net.bridge.bridge-nf-call-iptables=0
 request to virtual machine.
 
 #### Create virtual machine
-Ensure virtual machine is connected to the previously created bridge and it does not block traffic for http, https, dhcp and tftp. 
-
+Ensure virtual machine is connected to the previously created bridge and it does not block traffic for http, https, dhcp, bootpc, tftp, nfs, mountd, rpc-bind.\
+On centos 7:  
+```bash
+firewall-cmd --permanent --add-service nfs3
+firewall-cmd --permanent --add-service mountd
+firewall-cmd --permanent --add-service rpc-bind
+firewall-cmd --permanent --add-service tftp
+firewall-cmd --permanent --add-service dhcp
+firewall-cmd --permanent --add-service bootpc
+firewall-cmd --permanent --add-service http
+firewall-cmd --permanent --add-service https
+```
 #### Prepare raspberries pies
 Take them out of the box.
 
@@ -69,7 +79,118 @@ Schema:
 ![Alt text](img/tinkerbell-rpi-workaround.png "workaround plan")
 
 #### Configure nfs
-
-
-
+First step to enable netboot is to configure nfs server:
+1) Ensure `unzip kpartx nfs-kernel-server nfs-utils xinetd tftp-server` are installed
+1) Create nfs mount point:
+     ```bash
+    mkdir -p /nfs/os
+    ```
+1) Download and unzip latest version of raspbian os, rename it for simplicity
+    ```bash
+    wget https://downloads.raspberrypi.org/raspbian_lite_latest
+    unzip raspbian_latest && mv *-raspbian-buster-lite.img raspbian-buster-lite.img
+    ```
+1) Mount image partitions as loop devices
+    ```bash
+    kpartx -a -v raspbian-buster-lite.img
+    mkdir p1 p2
+    mount /dev/mapper/loop0p2 p2/ && mount /dev/mapper/loop0p1 p1/
+    ```
+1) Copy content of the image to nfs mount point
+    ```bash
+    cp -rf p2/* /nfs/os
+    cp -rf p1/* /nfs/os/boot
+    umount p2 p1
+    ```
+ 1) Download upstream firmware and replace the old one
+     ```bash
+    rm /nfs/os/boot/start4.elf && rm /nfs/os/boot/fixup4.dat
+    wget https://github.com/Hexxeh/rpi-firmware/raw/master/start4.elf && wget https://github.com/Hexxeh/rpi-firmware/raw/master/fixup4.dat
+    mv start4.elf fixup4.elf /nfs/os/boot/
+    ```
+ 1) Export os directory
+     ```bash
+    echo /nfs/os *(rw,sync,no_subtree_check,no_root_squash) >> /etc/exports
+    ```
+#### Configure tftp
+The next step is to configure tftp server:
+1) Relax SELinux policy for tftp service
+    ```bash
+    setsebool -P tftp_home_dir 1
+    ```
+1) Create directory to serve from:
+    ```bash
+    mkdir /tftp
+    ```    
+1) Modify tftp server configuration to bind to the specific interface and set directory. Unfortunately the 
+tinkerbell builtin tftp service is unable to handle files requested by RPi4, so in order to work around this, 
+we need to setup another tftp server next to boots. We must ensure that it does not listen on the same ip address,
+because it won't even start in that case, so in the configuration we should explicitly bind it to the 2nd ip address of 
+the interface used by tinkerbell. Tinkerbell during its setup adds another ip which is used by nginx service, we will reuse
+it for tftp server as well.\
+It is possible to check ip address of the tinkerbell assigned interface with: `ip addr show` \
+Modify `/etc/xinetd.d/tftp`
+    ```bash
+    service tftp
+    {
+            socket_type             = dgram
+            protocol                = udp
+            wait                    = yes
+            user                    = root
+            server                  = /usr/sbin/in.tftpd
+            bind                    = <use 2nd ip from tinkerbell interface>
+            server_args             = -v -v -s /tftp
+            disable                 = no
+            per_source              = 11
+            cps                     = 100 2
+            flags                   = IPv4
+    }
+    ```
+   
 ### Raspberry Pi
+
+Next step, before we start nfs and tftp services is to actually configure raspberries pies to boot fron the
+network. Unfortunately the current version does not support it out of the box.
+1) Install raspbian os on sd card and plug it into your raspberry pi. 
+1) Once booted, connect to it as root and go to `/lib/firmware/raspberrypi/bootloader/beta/`
+1) Create boot configuration file, remember to replace with tftp server ip address created in the previous step:
+    ```bash
+    cat <<EOF > bootconf.cfg
+    [all]
+    BOOT_UART=0
+    WAKE_ON_GPIO=1
+    POWER_OFF_ON_HALT=0
+    DHCP_TIMEOUT=45000
+    DHCP_REQ_TIMEOUT=4000
+    TFTP_FILE_TIMEOUT=30000
+    TFTP_IP=<tftp service ip address>
+    TFTP_PREFIX=0
+    BOOT_ORDER=0x21
+    SD_BOOT_MAX_RETRIES=3
+    NET_BOOT_MAX_RETRIES=5
+    [none]
+    FREEZE_VERSION=0
+    EOF
+    ```
+1) Create new boot image using the most recent boot image available in the beta directory:
+    ```bash
+    rpi-eeprom-config --out netboot-pieeprom.bin --config bootconf.cfg pieeprom-2020-04-16.bin
+    ```
+    **Note:** adjust pieeprom date accordingly to the content of the beta directory
+1) Flash eeprom with the new boot image:
+    ```bash
+    rpi-eeprom-update -d -f netboot-pieeprom.bin
+    ```
+1) Take note of the RPi4 serial number (especially the last 8 characters) and mac address, it will be used in the next steps: 
+    ```bash
+    serial=$(cat /proc/cpuinfo | grep Serial | cut -d ' ' -f 2) && mac=$(ip link show dev eth0 | grep ether | awk '{print $2}'); 
+    printf "serial: %s\nmac: %s\n" ${serial: -8} ${mac}
+    ```
+1) Repeat above steps for all your RPies.
+1) If you plan on using the same sd card during workflow execution, ensure to destroy partition table:
+    ```bash
+    dd if=/dev/zero of=/dev/mmcblk0 bs=1M count=1
+    ```
+   It is required to do this, because otherwise raspberry pi will boot from sd card first and not from network.
+1) Turn off RPi4.
+   

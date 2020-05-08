@@ -1,19 +1,19 @@
 {
-  "id": "<uuid>",
+  "id": "${UUID}",
   "arch": "aarch64",
   "allow_pxe": true,
-  "hostname": "worker-1",
+  "hostname": "${HOSTNAME}",
   "ip_addresses": [
     {
-      "address": "<ipv4 address>",
-      "netmask": "<netmask>",
+      "address": "${IP}",
+      "netmask": "${MASK}",
       "address_family": 4
     }
   ],
   "network_ports": [
     {
       "data": {
-        "mac": "<mac address>"
+        "mac": "${MAC}"
       },
       "name": "eth0",
       "type": "data"
@@ -21,4 +21,3 @@
   ],
   "allow_workflow": true
 }
-

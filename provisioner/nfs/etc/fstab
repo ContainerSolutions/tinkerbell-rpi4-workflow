@@ -1,0 +1,12 @@
+proc        /proc           proc    defaults          0       0
+tmpfs       /tmp tmpfs   nodev,nosuid,noexec,nodiratime,size=4096M   0 0
+tmpfs       /etc/docker tmpfs   nodev,nosuid,noexec,nodiratime,size=1M   0 0
+tmpfs       /root/.docker  tmpfs   nodev,nosuid,noexec,nodiratime,size=1M   0 0 
+tmpfs       /worker tmpfs   nodev,nosuid,noexec,nodiratime,size=4096M   0 0
+tmpfs       /var/lib/systemd/ tmpfs   nodev,nosuid,noexec,nodiratime,size=10M   0 0
+tmpfs       /var/lib/docker tmpfs   nodev,nosuid,noexec,nodiratime,size=4096M   0 0
+tmpfs       /var/lib/containerd tmpfs   nodev,nosuid,noexec,nodiratime,size=1024M   0 0
+tmpfs       /var/lib/docker-engine tmpfs   nodev,nosuid,noexec,nodiratime,size=256M   0 0
+tmpfs       /var/log tmpfs   nodev,nosuid,noexec,nodiratime,size=512M   0 0
+tmpfs       /var/tmp tmpfs   nodev,nosuid,noexec,nodiratime,size=512M   0 0
+tmpfs       /var/cache tmpfs   nodev,nosuid,noexec,nodiratime,size=512M   0 0
