@@ -56,7 +56,7 @@ Take them out of the box.
 
 ## Installation and configuration of the provisioner and RPi4
 ### Install tinkerbell
-Connect to the virtual machine and follow steps from https://tinkerbell.org/setup/prep_provisioner/ .
+Connect to the virtual machine and follow steps from https://tinkerbell.org/setup/packet/provisioner/ .
 At the end of installation, envrc file should be created, note its location.
 
 ### Setup nfs and tftp
