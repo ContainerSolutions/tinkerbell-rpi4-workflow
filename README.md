@@ -47,7 +47,7 @@ firewall-cmd --permanent --add-service mountd
 firewall-cmd --permanent --add-service rpc-bind
 firewall-cmd --permanent --add-service tftp
 firewall-cmd --permanent --add-service dhcp
-firewall-cmd --permanent --add-service bootpc
+firewall-cmd --permanent --add-port 68/udp
 firewall-cmd --permanent --add-service http
 firewall-cmd --permanent --add-service https
 ```
@@ -277,8 +277,9 @@ Next follow instructions from workflow directory.
 1) Source `envrc`
 1) Register raspberries pies hardware in tinkerbell
     ```bash
-    export hw=$(cat templates/hw.json | envsubst UUID="$(uuidgen)" IP="<desired ip>" MASK="255.255.255.0" MAC="<mac of RPi>" HOSTNAME="hostname")
-    docker exec -ti deploy_tink-cli_1 tink hardware push "$hw"
+    cat templates/hw.json | envsubst UUID="$(uuidgen)" IP="<desired ip>" MASK="255.255.255.0" MAC="<mac of RPi>" HOSTNAME="<desire hostname>" > device.json
+    docker cp device.json deploy_tink-cli_1:/root
+    docker exec -ti deploy_tink-cli_1 tink hardware push --file /root/device.json
     ```
    Example output after all RPi were registered:
    ````bash
@@ -290,23 +291,7 @@ Next follow instructions from workflow directory.
     {"id": "9f26de7a-3149-4833-a453-8a73e95a1d53", "arch": "aarch64", "hostname": "worker-2", "allow_pxe": true, "ip_addresses": [{"address": "192.168.2.37", "netmask": "255.255.255.0", "address
     _family": 4}], "network_ports": [{"data": {"mac": "dc:a6:32:7a:29:e1"}, "name": "eth0", "type": "data"}], "allow_workflow": true}
    ````
-1) Create targets: \
-For each of RPi run, replace desired ip with previously defined ip:
-    ```bash
-    docker exec -ti deploy_tink-cli_1 tink target create '{"targets": {"machine1": {"ipv4_addr": "<desired ip>"}}}' 
-    ```
-    Note down ids of the created targets. \
-    Example output of all created targets:
-    ```bash
-    docker exec -ti deploy_tink-cli_1 tink target list
-    +--------------------------------------+----------------------------------------------------------+
-    | TARGET ID                            | TARGET DATA                                              |
-    +--------------------------------------+----------------------------------------------------------+
-    | 551ff1ae-1a98-4f81-8a5d-60d0b7d23238 | {"targets": {"machine1": {"ipv4_addr": "192.168.2.37"}}} |
-    | 0f14482c-bec8-4b43-9eb1-d31311b46d1f | {"targets": {"machine1": {"ipv4_addr": "192.168.2.35"}}} |
-    | 83ba628d-62a2-479e-b7af-9606b73d12a8 | {"targets": {"machine1": {"ipv4_addr": "192.168.2.36"}}} |
-    +--------------------------------------+----------------------------------------------------------+
-    ```
+
 1) Create templates
     ```bash
     export SSID=<wifi ssid>
@@ -335,10 +320,10 @@ For each of RPi run, replace desired ip with previously defined ip:
 
 1) Create workflows, in orderd to this, it is required to assign template id with target id.
     ```bash
-    docker exec -ti deploy_tink-cli_1 tink workflow create -t <template id> -r <target id>
+    docker exec -ti deploy_tink-cli_1 tink workflow create -t <template id> -r '{"device_1": "<ip of the taget device>"}'
     ```
     In this step, you decide what role should be assigned to RPi. for example if you would like one RPi to be k8s master, 
-    you have to assign target with its IP to the k8s-master template.
+    you have to assign targeted hardware IP to the k8s-master template.
     Note down the workflow ids.
 
  ## Execute workflow

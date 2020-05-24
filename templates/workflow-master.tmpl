@@ -3,10 +3,10 @@ name: rpi4-k8s-master-provisioning
 global_timeout: 6000
 tasks:
 - name: "k8s-installation"
-  worker: "{{index .Targets "machine1" "ipv4_addr"}}"
+  worker: "{{.device_1}}"
   environment:
     HEGEL_URL: ${TINKERBELL_HOST_IP}
-    NODE_IP: "{{index .Targets "machine1" "ipv4_addr"}}"
+    NODE_IP: "{{.device_1}}"
   volumes:
     - /dev:/dev
   actions:
