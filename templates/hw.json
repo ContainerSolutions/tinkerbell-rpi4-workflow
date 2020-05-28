@@ -3,10 +3,12 @@
   "arch": "aarch64",
   "allow_pxe": true,
   "hostname": "${HOSTNAME}",
+  "facility_code": "onprem initrd=initramfs-aarch64 #",
   "ip_addresses": [
     {
       "address": "${IP}",
       "netmask": "${MASK}",
+      "gateway": "${GW}",
       "address_family": 4
     }
   ],
