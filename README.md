@@ -78,27 +78,35 @@ it won't work with other workflows.
    
 ### Raspberry Pi
 
-Install rpi4 uefi (https://rpi4-uefi.dev/) onto sdcard,  use the prepared image:
+Install rpi4 uefi (https://rpi4-uefi.dev/) onto sd card,  use the prepared image:
 
 ```bash
 wget -O rpi4-uefi.img https://storage.googleapis.com/rpi4-uefi-tinkerbell/rpi4-uefi.img
 dd if=worker/rpi4-uefi.img of=/dev/mmcblk0 #replace it according to your sd card device
 ```
+
+When booting rpi4 for the first time you have to change boot order to boot from pxe.
+
+ **Note:** If you decide to use upstream rpi4-uefi image, make sure that it is using `device tree`. The option in 
+ question can be found in the uefi menu under: `Device Manager` → `Raspberry Pi Configuration` → `Advanced Configuration`
  
  ## Configure workflows
  Workflow is a set of task which are executed in order and are used to configure the bare metal machine. 
  Each of the task is executed in th separate docker container. All task are supervised by a tink-worker, which
  gathers logs, communicates with external services and handles errors.
  ### Prepare workflow
- Since workflows are executed in-memory on raspberry pi, it is required ensure tink-worker support that architecture, at the time 
- of writing it was not available, but we prepared one for you, you can pull it from here:
+ Since workflows are executed in-memory on raspberry pi, it is required ensure tink-worker and fluent-bit support that architecture, at the time 
+ of writing tink-worker was not available, but we prepared one for you, you can pull it from here:
  ```bash
-docker pull ottovsky/tink-worker:armv7
+docker pull ottovsky/tink-worker:armv7-latest
+docker pull fluent/fluent-bit:arm32v7-1.3.8
 ```
 Once pulled, tag it with your ${TINKERBELL_HOST_IP} registry and push it:
 ````bash
-docker tag ottovsky/tink-worker:armv7 ${TINKERBELL_HOST_IP}/tink-worker:armv7
+docker tag ottovsky/tink-worker:armv7-latest ${TINKERBELL_HOST_IP}/tink-worker:armv7
+docker tag fluent/fluent-bit:arm32v7-1.3.8  ${TINKERBELL_HOST_IP}/fluent-bit:1.3-arm
 docker push ${TINKERBELL_HOST_IP}/tink-worker:armv7
+${TINKERBELL_HOST_IP}/fluent-bit:1.3-arm
 ````
 
 Next follow instructions from workflow directory.
