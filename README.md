@@ -259,16 +259,20 @@ network.
  Workflow is a set of task which are executed in order and are used to configure the bare metal machine. 
  Each of the task is executed in th separate docker container. All task are supervised by a tink-worker, which
  gathers logs, communicates with external services and handles errors.
+ 
  ### Prepare workflow
- Since workflows are executed in-memory on raspberry pi, it is required ensure tink-worker support that architecture, at the time 
- of writing it was not available, but we prepared one for you, you can pull it from here:
+ Since workflows are executed in-memory on raspberry pi, it is required to ensure tink-worker and fluent-bit support that architecture, at the time 
+ of writing tink-worker was not available, but we prepared one for you, you can pull it from here:
  ```bash
-docker pull ottovsky/tink-worker:armv7
+docker pull ottovsky/tink-worker:armv7-latest
+docker pull fluent/fluent-bit:arm32v7-1.3.8
 ```
 Once pulled, tag it with your ${TINKERBELL_HOST_IP} registry and push it:
 ````bash
-docker tag ottovsky/tink-worker:armv7 ${TINKERBELL_HOST_IP}/tink-worker:armv7
+docker tag ottovsky/tink-worker:armv7-latest ${TINKERBELL_HOST_IP}/tink-worker:armv7
+docker tag fluent/fluent-bit:arm32v7-1.3.8  ${TINKERBELL_HOST_IP}/fluent-bit:1.3-arm
 docker push ${TINKERBELL_HOST_IP}/tink-worker:armv7
+${TINKERBELL_HOST_IP}/fluent-bit:1.3-arm
 ````
 
 Next follow instructions from workflow directory.
