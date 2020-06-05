@@ -12,7 +12,8 @@ then
   disk=$(lsblk -dno name -e1,7,11 | sed 's|^|/dev/|' | sort)
   echo "Successfully downloaded os, proceeding with its installation to ${disk}"
   unzip -p os.zip | dd of=${disk} status=progress
-  echo "Installed OS successfully" 
+  echo "Installed OS successfully. Refreshing partition table."
+  partx -u ${disk} 
 else
   echo "Failed to download OS, http code: ${code} different than 200"
   exit 1
