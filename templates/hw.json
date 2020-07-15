@@ -1,25 +1,32 @@
 {
   "id": "${UUID}",
-  "arch": "aarch64",
-  "allow_pxe": true,
-  "hostname": "${HOSTNAME}",
-  "facility_code": "onprem initrd=initramfs-aarch64 #",
-  "ip_addresses": [
-    {
-      "address": "${IP}",
-      "netmask": "${MASK}",
-      "gateway": "${GW}",
-      "address_family": 4
-    }
-  ],
-  "network_ports": [
-    {
-      "data": {
-        "mac": "${MAC}"
-      },
-      "name": "eth0",
-      "type": "data"
-    }
-  ],
-  "allow_workflow": true
+  "metadata": {
+    "facility": {
+      "facility_code": "onprem initrd=initramfs-aarch64 #"
+    },
+    "instance": {},
+    "state": ""
+  },
+  "network": {
+    "interfaces": [
+      {
+        "dhcp": {
+          "arch": "aarch64",
+          "ip": {
+            "address": "${IP}",
+            "gateway": "{GW}",
+            "netmask": "{MASK}"
+          },
+          "mac": "${MAC}",
+          "hostname": "${HOSTNAME}",
+          "iface_name": "eth0",
+          "uefi": false
+        },
+        "netboot": {
+          "allow_pxe": true,
+          "allow_workflow": true
+        }
+      }
+    ]
+  }
 }
